@@ -236,19 +236,28 @@ public class Rage extends Activity {
 			photo.setText("Foto hinzufügen");
 			photo.setOnClickListener(new View.OnClickListener() {
 				public void onClick(View v) {
-					Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE); 
-					RageView.this.captured_image = System.currentTimeMillis() + ".jpg";
-					File file = new File(Environment.getExternalStorageDirectory(), captured_image); 
-					captured_image = file.getAbsolutePath();
-					Uri outputFileUri = Uri.fromFile(file); 
-					intent.putExtra(MediaStore.EXTRA_OUTPUT, outputFileUri); 
-					intent.putExtra("return-data", true);
-					Rage.this.startActivityForResult(intent, RES_IMAGE_CAPTURE);
+					if(photo.getText().toString().equals("Foto hinzufügen")) {
+						Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE); 
+						RageView.this.captured_image = System.currentTimeMillis() + ".jpg";
+						File file = new File(Environment.getExternalStorageDirectory(), captured_image); 
+						captured_image = file.getAbsolutePath();
+						Uri outputFileUri = Uri.fromFile(file); 
+						intent.putExtra(MediaStore.EXTRA_OUTPUT, outputFileUri); 
+						intent.putExtra("return-data", true);
+						Rage.this.startActivityForResult(intent, RES_IMAGE_CAPTURE);
+					} else {
+						File file = new File(Environment.getExternalStorageDirectory(), captured_image); 
+						file.delete();
+						captured_image = null;
+						photo_view.setImageBitmap(null);
+						photo.setText("Foto hinzufügen");
+					}
 				}
 			});
 			addView(photo);
 
 			photo_view = new ImageView(ctx);
+			photo_view.setAdjustViewBounds(true);
 			addView(photo_view);
 
 			send = new Button(ctx);
@@ -267,6 +276,7 @@ public class Rage extends Activity {
 				public void onClick(View v) {
 					send.setBackgroundResource(android.R.drawable.btn_default);
 					send.setEnabled(true);
+					send.setText("Absenden");
 				}
 			});
 			addView(reset);
@@ -290,6 +300,7 @@ public class Rage extends Activity {
 
 		public void setCapturedPhoto(Bitmap bmp) {
 			photo_view.setImageBitmap(bmp);
+		  photo.setText("Foto löschen");
 		}
 
 		public String getCapturedImage() {
@@ -358,6 +369,12 @@ public class Rage extends Activity {
 		scroll.addView(view);
 
 		setContentView(scroll);
+
+	  SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+		view.first_name.setText(prefs.getString("first_name", ""));
+		view.last_name.setText(prefs.getString("last_name", ""));
+		view.phone.setText(prefs.getString("phone", ""));
+		view.email.setText(prefs.getString("email", ""));
 	}
 
 	@Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -371,5 +388,16 @@ public class Rage extends Activity {
 				}
 				break;
 		}
+	}
+
+	@Override protected void onPause() {
+		super.onPause();
+
+	  SharedPreferences.Editor prefs = getPreferences(MODE_PRIVATE).edit();
+		prefs.putString("first_name", view.first_name.getText().toString());
+		prefs.putString("last_name", view.last_name.getText().toString());
+		prefs.putString("phone", view.phone.getText().toString());
+		prefs.putString("email", view.email.getText().toString());
+		prefs.commit();
 	}
 }
