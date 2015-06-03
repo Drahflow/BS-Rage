@@ -23,10 +23,12 @@ import org.apache.http.util.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.regex.*;
 
 public class Rage extends Activity {
 	public final int RES_IMAGE_CAPTURE = 0;
 	public final String BRAUNSCHWEIG_URL = "https://www.braunschweig.de/send.php";
+	public final String NOTICE_URL = "http://drahflow.name/bsrage-notice.html";
 
 	public class MultipartUtility {
 		private final String boundary = "===" + System.currentTimeMillis() + "===";
@@ -111,11 +113,12 @@ public class Rage extends Activity {
 	class RageView extends LinearLayout {
 		private Context ctx;
 
+		private TextView notice;
+		private Spinner problem;
 		private EditText first_name;
 		private EditText last_name;
 		private EditText phone;
 		private EditText email;
-		private Spinner problem;
 		private EditText details;
 		private Button photo;
 		private ImageView photo_view;
@@ -124,6 +127,7 @@ public class Rage extends Activity {
 		private LocationManager locations;
 		private Button send;
 		private Button reset;
+		private TextView support;
 
 		String captured_image = null;
 		Bitmap captured_bmp = null;
@@ -167,6 +171,9 @@ public class Rage extends Activity {
 
 			setOrientation(VERTICAL);
 
+			notice = new TextView(ctx);
+			addView(notice);
+
 			problem = new Spinner(ctx);
 			problem.setAdapter(new SpinnerAdapter() {
 				public View getDropDownView(int i, View template, ViewGroup parent) {
@@ -208,13 +215,14 @@ public class Rage extends Activity {
 				row.addView(lbl);
 
 				gps = new Button(ctx);
-				gps.setText("Hier");
+				gps.setText("GPS");
 				gps.setOnClickListener(new View.OnClickListener() {
 					public void onClick(View v) {
 						locations.requestSingleUpdate(LocationManager.GPS_PROVIDER,
 						new LocationListener() {
 							public void onLocationChanged(Location location) {
-								RageView.this.location.setText("Ort (GPS): " + location);
+								RageView.this.location.setText("(GPS): " + location.getLatitude() + "/" + location.getLongitude());
+								RageView.this.gps.setText("GPS");
 							}
 							public void onProviderDisabled(String provider) { }
 							public void onProviderEnabled(String provider) { }
@@ -280,6 +288,10 @@ public class Rage extends Activity {
 				}
 			});
 			addView(reset);
+
+			support = new TextView(ctx);
+			support.setText("App runterladen:\nhttp://drahflow.name/bsrage.apk\n\nApp funktioniert nicht?\nEmail an: drahflow@gmx.de");
+			addView(support);
 		}
 
 		private EditText makeInputField(String label) {
@@ -307,6 +319,41 @@ public class Rage extends Activity {
 			return captured_image;
 		}
 
+		public void updateNotice() {
+			try {
+				URL url = new URL(NOTICE_URL);
+				HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+				httpConn.setUseCaches(false);
+				httpConn.setRequestProperty("User-Agent", "BS Rage App - Version: Zwafelink");
+
+				StringBuilder result = new StringBuilder();
+				int status = httpConn.getResponseCode();
+				if (status == HttpURLConnection.HTTP_OK) {
+					BufferedReader reader = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
+					String line = null;
+					while ((line = reader.readLine()) != null) {
+						result.append(line).append("\n");
+					}
+					reader.close();
+					httpConn.disconnect();
+				} else {
+					throw new IOException("Server returned non-OK status: " + status);
+				}
+
+
+				if(result.toString().contains("<b>")) {
+					notice.setBackgroundColor(Color.RED);
+				} else {
+					notice.setBackgroundColor(Color.BLACK);
+				}
+				notice.setText(Html.fromHtml(result.toString()));
+			} catch (ClientProtocolException e) {
+				notice.setText("Aktualisierungsmeldungen konnten nicht geholt werden: " + e.toString());
+			} catch (IOException e) {
+				notice.setText("Aktualisierungsmeldungen konnten nicht geholt werden: " + e.toString());
+			} 
+		}
+
 		private void submit() {
 			try {
 				MultipartUtility utility = new MultipartUtility(BRAUNSCHWEIG_URL, "windows-1252");
@@ -332,6 +379,11 @@ public class Rage extends Activity {
 				if(details.getText().toString().length() > 10) {
 					utility.addFormField("Beschreibung", details.getText().toString() + "\n\n" + "Ort: " + location.getText().toString());
 				}
+				Pattern gpsloc = Pattern.compile("\\(GPS\\): (\\d+\\.\\d+/\\d+.\\d+)");
+				Matcher gpsmatch = gpsloc.matcher(location.getText().toString());
+				if(gpsmatch.find()) {
+					utility.addFormField("mapSightCoordinates", gpsmatch.group(1));
+				}
 				if(captured_image != null) {
 					utility.addFilePart("Anhang", new File(captured_image));
 				}
@@ -351,9 +403,9 @@ public class Rage extends Activity {
 					send.setBackgroundColor(Color.RED);
 				}
 			} catch (ClientProtocolException e) {
-				send.setText(e.toString());
+				send.setText("Absenden fehlgeschlagen: " + e.toString());
 			} catch (IOException e) {
-				send.setText(e.toString());
+				send.setText("Absenden fehlgeschlagen: " + e.toString());
 			}
 		}
 	}
@@ -399,5 +451,11 @@ public class Rage extends Activity {
 		prefs.putString("phone", view.phone.getText().toString());
 		prefs.putString("email", view.email.getText().toString());
 		prefs.commit();
+	}
+
+	@Override protected void onResume() {
+		super.onResume();
+
+		view.updateNotice();
 	}
 }
