@@ -272,7 +272,6 @@ public class Rage extends Activity {
 			send.setText("Absenden");
 			send.setOnClickListener(new View.OnClickListener() {
 				public void onClick(View v) {
-					send.setEnabled(false);
 					submit();
 				}
 			});
@@ -324,7 +323,7 @@ public class Rage extends Activity {
 				URL url = new URL(NOTICE_URL);
 				HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
 				httpConn.setUseCaches(false);
-				httpConn.setRequestProperty("User-Agent", "BS Rage App - Version: Zwafelink");
+				httpConn.setRequestProperty("User-Agent", "BS Rage App - Version: Krahe");
 
 				StringBuilder result = new StringBuilder();
 				int status = httpConn.getResponseCode();
@@ -354,16 +353,22 @@ public class Rage extends Activity {
 			} 
 		}
 
+		public int getSelectedProblemIndex() {
+			String selectedProblem = ((TextView)problem.getSelectedView()).getText().toString();
+			for(int i = 0; i < PROBLEMS.length; ++i) {
+				if(PROBLEMS[i].equals(selectedProblem)) {
+					return i;
+				}
+			}
+
+			return -1;
+		}
+
 		private void submit() {
 			try {
 				MultipartUtility utility = new MultipartUtility(BRAUNSCHWEIG_URL, "windows-1252");
 				utility.addFormField("tpl", "schadensmeldung_iub.php");
-				String selectedProblem = ((TextView)problem.getSelectedView()).getText().toString();
-				for(int i = 0; i < PROBLEMS.length; ++i) {
-					if(PROBLEMS[i].equals(selectedProblem)) {
-						utility.addFormField("schadensmeldung", PROBLEM_VALUES[i]);
-					}
-				}
+				utility.addFormField("schadensmeldung", PROBLEM_VALUES[getSelectedProblemIndex()]);
 				utility.addFormField("copytosender", "true");
 				utility.addFormField("antwort", "antwort");
 				if(!send.getText().toString().equals("Absenden")) {
@@ -457,5 +462,19 @@ public class Rage extends Activity {
 		super.onResume();
 
 		view.updateNotice();
+	}
+
+	@Override
+	public void onSaveInstanceState(Bundle store) {
+		store.putString("details", view.details.getText().toString());
+		store.putString("location", view.location.getText().toString());
+		store.putInt("problem", view.getSelectedProblemIndex());
+	}
+
+	@Override
+	public void onRestoreInstanceState(Bundle store) {
+		view.details.setText(store.getString("details"));
+		view.location.setText(store.getString("location"));
+		view.problem.setSelection(store.getInt("problem"));
 	}
 }
